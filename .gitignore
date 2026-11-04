@@ -1,0 +1,22 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+build/
+dist/
+.venv/
+venv/
+
+# 本地数据：绝不提交数据库、日志、配置
+opencode.db
+opencode.db-*
+*.log
+*.log.1
+config.json
+calibration.json
+
+# 编辑器
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
