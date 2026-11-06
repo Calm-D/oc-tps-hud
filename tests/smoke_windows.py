@@ -140,7 +140,12 @@ def main():
                 assert visible, "客户端可见，但浮层没有显示"
             else:
                 assert not visible, "客户端不可见，浮层却还显示着（应自动隐藏）"
-            assert (r.right - r.left, r.bottom - r.top) == (cfg["window"]["width"], cfg["window"]["height"]), \
+            if app.layout == "bar":
+                exp_w = min(app.base_w, 1000 - 2 * app.margin)
+                exp_h = cfg["window"]["bar_height"]
+            else:
+                exp_w, exp_h = cfg["window"]["width"], cfg["window"]["height"]
+            assert (r.right - r.left, r.bottom - r.top) == (exp_w, exp_h), \
                 (r.right - r.left, r.bottom - r.top)
             return "%dx%d 可见" % (r.right - r.left, r.bottom - r.top)
 
@@ -153,7 +158,10 @@ def main():
             app.dock()
             app.root.update()
             x, y = app._pos
-            assert x == 1100 - app.W - app.margin, (x, app.W, app.margin)
+            if app.layout == "bar":
+                assert x == 100 + (1000 - app.W) // 2, x
+            else:
+                assert x == 1100 - app.W - app.margin, (x, app.W, app.margin)
             assert y == 800 - app.H - (app.margin + app.bottom_offset), y
             return "落点 (%d,%d)" % (x, y)
 
@@ -165,7 +173,10 @@ def main():
             app.dock()
             app.root.update()
             x, y = app._pos
-            assert x == 100 + app.margin, x
+            if app.layout == "bar":
+                assert x == 100 + (1000 - app.W) // 2, x
+            else:
+                assert x == 100 + app.margin, x
             return "落点 (%d,%d)" % (x, y)
 
         check("切左下角", switch_bl)
@@ -176,7 +187,10 @@ def main():
             app._pos = None
             app.dock()
             app.root.update()
-            assert app._pos[0] == 1300 - app.W - app.margin
+            if app.layout == "bar":
+                assert app._pos[0] == 300 + (1000 - app.W) // 2, app._pos
+            else:
+                assert app._pos[0] == 1300 - app.W - app.margin
             return "跟随移动 OK"
 
         check("客户端移动后跟随", follow_move)

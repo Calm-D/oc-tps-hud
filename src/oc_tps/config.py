@@ -8,6 +8,7 @@ import sys
 APP_NAME = "oc-tps-hud"
 
 DEFAULTS = {
+    "layout": "bar",             # bar = 一行细长条（居中）| block = 四行方块
     "follow": "br",              # br | bl | free
     "theme": "auto",             # auto | light | dark
     "alpha": 0.95,               # 0.5 ~ 1.0
@@ -18,8 +19,10 @@ DEFAULTS = {
     "window": {
         "width": 268,
         "height": 128,
+        "bar_width": 640,
+        "bar_height": 26,
         "margin": 12,            # 距客户端窗口边缘的像素
-        "bottom_offset": 104,    # 再往上抬多少像素：用来避开输入框/按钮区
+        "bottom_offset": 112,    # 再往上抬多少像素：用来避开输入框/按钮区
     },
     "fonts": {
         "ui": "",                # 空 = 按平台选择
@@ -68,6 +71,17 @@ def _merge(base, over):
         else:
             out[k] = v
     return out
+
+
+def load_user(path=None):
+    """只返回用户文件里实际写过的键，用来避免把默认值固化进文件。"""
+    path = path or config_path()
+    try:
+        with open(path, "r", encoding="utf-8") as f:
+            data = json.load(f)
+        return data if isinstance(data, dict) else {}
+    except Exception:
+        return {}
 
 
 def load(path=None):

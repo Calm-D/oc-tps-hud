@@ -208,9 +208,15 @@ class UI:
         root.attributes("-alpha", alpha)
 
         win = cfg.get("window") or {}
-        W = int(win.get("width", 268))
-        H = int(win.get("height", 128))
+        self.layout = cfg.get("layout", "bar")
+        if self.layout == "bar":
+            W = int(win.get("bar_width", 560))
+            H = int(win.get("bar_height", 26))
+        else:
+            W = int(win.get("width", 268))
+            H = int(win.get("height", 128))
         self.W, self.H = W, H
+        self.base_w = W
         self.margin = int(win.get("margin", 12))
         self.bottom_offset = int(win.get("bottom_offset", 104))
         sw, sh = root.winfo_screenwidth(), root.winfo_screenheight()
@@ -227,12 +233,17 @@ class UI:
         self.f_line = tkfont.Font(family=ui_font, size=9)
         self.status_w = W - 30 - 16
 
-        self.dot = c.create_oval(13, 12, 21, 20, fill="", outline="")
-        self.status = Halo(c, 27, 16, (ui_font, 9))
-        self.num = Halo(c, 13, 54, (num_font, 24, "bold"))
-        self.unit = Halo(c, 110, 61, (num_font, 9))
-        self.line1 = Halo(c, 14, 90, (ui_font, 9))
-        self.line2 = Halo(c, 14, 110, (ui_font, 9))
+        if self.layout == "bar":
+            self.f_bar = tkfont.Font(family=ui_font, size=10)
+            self.dot = c.create_oval(-20, -20, -14, -14, fill="", outline="")
+            self.bar = Halo(c, W // 2, H // 2, (ui_font, 10), anchor="center")
+        else:
+            self.dot = c.create_oval(13, 12, 21, 20, fill="", outline="")
+            self.status = Halo(c, 27, 16, (ui_font, 9))
+            self.num = Halo(c, 13, 54, (num_font, 24, "bold"))
+            self.unit = Halo(c, 110, 61, (num_font, 9))
+            self.line1 = Halo(c, 14, 90, (ui_font, 9))
+            self.line2 = Halo(c, 14, 110, (ui_font, 9))
 
         for w in (root, c):
             w.bind("<Button-1>", self.on_press)
@@ -339,9 +350,12 @@ class UI:
         self.root.configure(bg=key)
         p = self.pal()
         self.c.itemconfigure(self.dot, fill=p["mute"])
-        for h, k in ((self.status, "dim"), (self.num, "text"),
-                     (self.unit, "dim2"), (self.line1, "dim"), (self.line2, "dim2")):
-            h.recolor(p[k], p["halo"])
+        if self.layout == "bar":
+            self.bar.recolor(p["text"], p["halo"])
+        else:
+            for h, k in ((self.status, "dim"), (self.num, "text"),
+                         (self.unit, "dim2"), (self.line1, "dim"), (self.line2, "dim2")):
+                h.recolor(p[k], p["halo"])
 
     # ---------- 窗口行为 ----------
 
@@ -368,7 +382,9 @@ class UI:
 
     def _persist(self, key, value):
         self.cfg[key] = value
-        config.save(self.cfg)
+        user = config.load_user()
+        user[key] = value
+        config.save(user)
 
     def on_follow_change(self):
         self._persist("follow", self.follow.get())
@@ -394,7 +410,9 @@ class UI:
         """微调「距底边的抬升量」，避开输入框和按钮。"""
         self.bottom_offset = max(0, min(800, self.bottom_offset + delta))
         self.cfg.setdefault("window", {})["bottom_offset"] = self.bottom_offset
-        config.save(self.cfg)
+        user = config.load_user()
+        user.setdefault("window", {})["bottom_offset"] = self.bottom_offset
+        config.save(user)
         self._pos = None
         self.dock()
 
@@ -459,7 +477,10 @@ class UI:
         left, top, right, bottom = [int(v * s) for v in rect]
         m = int(self.margin * s)
         dy = int((self.margin + self.bottom_offset) * s)
-        if self.follow.get() == "bl":
+        if self.layout == "bar":
+            self.set_width((right - left) - 2 * m)
+            x = left + ((right - left) - self.W) // 2
+        elif self.follow.get() == "bl":
             x = left + m
         else:
             x = right - self.W - m
@@ -484,6 +505,79 @@ class UI:
 
     # ---------- 内容 ----------
 
+    def render_bar(self, d):
+        """一行式显示：状态 · 模型 · 速度 · 本步 · 中位，居中排布。"""
+        p = self.pal()
+        tr = self.tr
+        st = d.get("state")
+        model = d.get("model") or "—"
+        tok = d.get("tokens") or 0
+        elapsed = d.get("elapsed") or 0
+
+        key = {"run": "state.run", "wait": "state.wait", "done": "state.done",
+               "ttft": "state.ttft", "queue": "state.queue", "idle": "state.idle",
+               "error": "state.error", "noschema": "state.noschema"}.get(st)
+        head = tr(key) if key else tr("state.nodata")
+        if st in ("run", "wait", "done", "ttft", "queue", "idle"):
+            head = head + " · " + model
+
+        dot = p["mute"]
+        if st == "run":
+            dot = p["ok"]
+        elif st in ("wait", "ttft", "queue"):
+            dot = p["warn"]
+        elif st == "done":
+            dot = p["ok"]
+        elif st in ("error", "noschema", "nodata"):
+            dot = p["bad"]
+
+        if st in ("run", "wait", "done") and (d.get("rate") or 0) > 0.05:
+            rate = "%s%.1f tok/s" % ("≈" if st in ("run", "wait") else "", d["rate"])
+        else:
+            rate = "— tok/s"
+
+        # 放不下的顺序：先砍「本步」，再砍「中位」，保留状态与当前速度
+        parts = [head, rate]
+        recent = d.get("recent")
+        if recent:
+            parts.append(tr("bar.median", v="%.1f" % recent))
+        if st in ("run", "wait", "done", "ttft"):
+            parts.append("%s tok · %s" % (fmt_tok(tok), fmt_sec(elapsed)))
+
+        sep = " · "
+        maxw = self.W - 26
+        text = sep.join(parts)
+        while self.f_bar.measure(text) > maxw and len(parts) > 2:
+            parts.pop()
+            text = sep.join(parts)
+        if self.f_bar.measure(text) > maxw:
+            while text and self.f_bar.measure(text + "…") > maxw:
+                text = text[:-1]
+            text = text + "…"
+
+        self.bar.set(text, p["text"] if st in ("run", "wait", "done") else p["dim"], p["halo"])
+        w = self.f_bar.measure(text)
+        cx = self.W // 2
+        dx = cx - w / 2.0 - 10
+        if dx > 6:
+            r = 3
+            cy = self.H // 2
+            self.c.coords(self.dot, dx - r, cy - r, dx + r, cy + r)
+            self.c.itemconfigure(self.dot, state="normal", fill=dot)
+        else:
+            self.c.itemconfigure(self.dot, state="hidden")
+
+    def set_width(self, w):
+        """客户端窗口比条窄时收窄，变宽时恢复；不会超过配置宽度。"""
+        w = max(200, min(w, self.base_w))
+        if w == self.W:
+            return
+        self.W = w
+        self.root.geometry("%dx%d" % (w, self.H))
+        self.c.configure(width=w)
+        self.bar.move_to(w // 2, self.H // 2)
+        self._pos = None
+
     def fit(self, text, maxw):
         """放不下时优先保模型名（状态还能靠圆点颜色分辨），再退化为左截断。"""
         f = self.f_status
@@ -504,6 +598,10 @@ class UI:
 
     def refresh(self):
         d = self.engine.tick()
+        if self.layout == "bar":
+            self.render_bar(d)
+            self.root.after(int(self.cfg.get("poll_ms", 400)), self.refresh)
+            return
         p = self.pal()
         tr = self.tr
         st = d.get("state")

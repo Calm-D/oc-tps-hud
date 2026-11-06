@@ -2,11 +2,13 @@
 
 在 OpenCode 桌面版窗口角落显示**实时输出速度（tokens/s）**的小浮层。背景透明、只有文字，贴在客户端右下角，跟着窗口走。
 
-![screenshot](docs/screenshot.png)
+![screenshot](docs/screenshot-bar.png)
 
-| 中文界面 | English UI |
+两种布局，配置项 `layout` 切换：
+
+| `bar`（默认，一行细长条） | `block`（四行方块） |
 |---|---|
-| ![zh](docs/screenshot.png) | ![en](docs/screenshot-en.png) |
+| ![bar](docs/screenshot-bar.png) | ![block](docs/screenshot.png) |
 
 > **非官方项目。** 与 OpenCode 的作者无关，不使用其商标作为产品名。
 
@@ -78,7 +80,7 @@ oc-tps-hud
 - 你切到浏览器、游戏、别的程序时，它**跟着 OpenCode 一起退到后面**，不会盖住别人；
 - OpenCode 最小化时它一起隐藏，还原时再出现。
 
-位置默认贴在**输入框上方**（距窗口底边 12 + `bottom_offset` 像素），不会压住发送按钮等控件。
+位置默认贴在**输入框上方那条空隙里**（距窗口底边 12 + `bottom_offset` 像素），不会压住发送按钮等控件。
 觉得高了或低了：右键菜单「整体上移 / 下移 20px」，调完自动记住。
 
 如果确实希望它在任何程序之上，右键勾选「始终置顶（会盖住其他程序）」，等价于配置 `topmost: true`。
@@ -98,14 +100,15 @@ oc-tps-hud
 
 | 键 | 默认 | 说明 |
 |---|---|---|
-| `follow` | `"br"` | `br` 右下 / `bl` 左下 / `free` 不跟随 |
+| `layout` | `"bar"` | `bar` 一行细长条（居中）/ `block` 四行方块 |
+| `follow` | `"br"` | `br` 右下 / `bl` 左下 / `free` 不跟随（`bar` 模式恒居中） |
 | `theme` | `"auto"` | `auto` 按窗口底下亮度切换 / `light` / `dark` |
 | `alpha` | `0.95` | 0.5 ~ 1.0 |
 | `topmost` | `false` | `true` = 盖住所有程序；`false` = 只压在客户端之上 |
 | `language` | `"auto"` | `auto` / `zh` / `en` |
 | `db_path` | `""` | 空 = 自动探测 |
 | `poll_ms` | `400` | 刷新间隔 |
-| `window` | `{width:268,height:128,margin:12,bottom_offset:104}` | 尺寸、右/左间距，以及距底边的抬升量（避开输入框） |
+| `window` | `{width:268,height:128,bar_width:640,bar_height:26,margin:12,bottom_offset:112}` | 两种布局各自的尺寸，以及距底边的抬升量（避开输入框） |
 | `fonts` | `{ui:"",number:""}` | 空 = 按平台选择（Win 雅黑 / mac PingFang / Linux Noto） |
 | `client_min_size` | `[480,360]` | 小于此尺寸的窗口不认作客户端主窗口 |
 | `debug` | `false` | 预留 |
