@@ -175,6 +175,7 @@ class UI:
         self.tr = tr
         self.topmost = bool(cfg.get("topmost", False))
         self._owner = None
+        self._quitting = False
         self.custom = None
         self.settings = cfg
         self.client = ClientWindow(tuple(cfg.get("client_min_size", (480, 360))))
@@ -255,7 +256,7 @@ class UI:
             w.bind("<B1-Motion>", self.on_drag)
             w.bind("<Button-3>", self.on_menu)
         root.bind("<Double-Button-1>", lambda e: self.toggle_top())
-        root.bind("<Escape>", lambda e: root.destroy())
+        root.bind("<Escape>", lambda e: self.quit_app())
 
         self.follow = tk.StringVar(value=cfg.get("follow", "br"))
         self.theme_var = tk.StringVar(value=self.mode)
@@ -283,7 +284,7 @@ class UI:
         m.add_command(label=tr("menu.down"), command=lambda: self.nudge_bottom(20))
         m.add_command(label=tr("menu.alpha"), command=self.toggle_alpha)
         m.add_separator()
-        m.add_command(label=tr("menu.quit"), command=root.destroy)
+        m.add_command(label=tr("menu.quit"), command=self.quit_app)
         self.menu = m
 
         self.root = root
@@ -379,6 +380,33 @@ class UI:
                 h.recolor(p[k], p["halo"])
 
     # ---------- 窗口行为 ----------
+
+    def quit_app(self):
+        self._quitting = True
+        """先收菜单、再隐藏、最后延迟销毁。
+
+        直接在菜单回调里 destroy 主窗口，Tk 的菜单窗口来不及收掉，
+        会留下一块没有内容的灰底，直到进程真正退出。
+        """
+        try:
+            self.menu.unpost()
+        except Exception:
+            pass
+        for attr in ("_after_follow", "_after_refresh"):
+            job = getattr(self, attr, None)
+            if job:
+                try:
+                    self.root.after_cancel(job)
+                except Exception:
+                    pass
+        try:
+            self.root.withdraw()
+        except Exception:
+            pass
+        try:
+            self.root.after(120, self.root.destroy)
+        except Exception:
+            pass
 
     def on_press(self, e):
         self._press = (e.x_root, e.y_root)
@@ -552,12 +580,14 @@ class UI:
         self.measure_scale()
 
     def follow_tick(self):
+        if self._quitting:
+            return
         try:
             self.dock()
             self.refresh_theme()
         except Exception as e:
             logs.exception("error.log", e)
-        self.root.after(400, self.follow_tick)
+        self._after_follow = self.root.after(400, self.follow_tick)
 
     # ---------- 内容 ----------
 
@@ -660,10 +690,12 @@ class UI:
         return head + sep + m
 
     def refresh(self):
+        if self._quitting:
+            return
         d = self.engine.tick()
         if self.layout == "bar":
             self.render_bar(d)
-            self.root.after(int(self.cfg.get("poll_ms", 400)), self.refresh)
+            self._after_refresh = self.root.after(int(self.cfg.get("poll_ms", 400)), self.refresh)
             return
         p = self.pal()
         tr = self.tr
@@ -731,7 +763,7 @@ class UI:
             self.line2.set(tr("line.none"), p["dim2"], p["halo"])
 
         self.c.itemconfigure(self.dot, fill=dot)
-        self.root.after(int(self.cfg.get("poll_ms", 400)), self.refresh)
+        self._after_refresh = self.root.after(int(self.cfg.get("poll_ms", 400)), self.refresh)
 
     def run(self):
         self.root.mainloop()

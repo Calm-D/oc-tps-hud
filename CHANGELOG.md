@@ -2,6 +2,15 @@
 
 版本号遵循 [语义化版本](https://semver.org/lang/zh-CN/)。
 
+## 0.1.6 — 2026-11-06
+
+**修复**
+
+- 从右键菜单点「退出」后，屏幕上会残留一块灰底（Tk 菜单窗口来不及收掉）。
+  现在改为：先 `unpost()` 收起菜单 → 取消挂起的定时器 → `withdraw()` 隐藏窗口 → 120ms 后再 `destroy()`。
+- 退出时取消 `follow_tick` / `refresh` 的 after 任务，避免销毁后回调触发
+  `invalid command name ...` 的 Tcl 报错（pythonw 下看不见，但会污染 stderr）。
+
 ## 0.1.5 — 2026-11-06
 
 **新增**
