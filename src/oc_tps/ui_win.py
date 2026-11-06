@@ -11,6 +11,9 @@ from ctypes import wintypes
 
 from . import config, logs
 
+GWL_HWNDPARENT = -8
+WS_EX_TOPMOST = 0x00000008
+
 KEY_LIGHT = "#FDFDFD"
 KEY_DARK = "#0D0F12"
 
@@ -168,7 +171,8 @@ class UI:
         self.engine = engine
         self.cfg = cfg
         self.tr = tr
-        self.topmost = True
+        self.topmost = bool(cfg.get("topmost", False))
+        self._owner = None
         self.settings = cfg
         self.client = ClientWindow(tuple(cfg.get("client_min_size", (480, 360))))
         self.u = self.client.u
@@ -189,7 +193,7 @@ class UI:
         root = tk.Tk()
         root.title("oc-tps-hud")
         root.overrideredirect(True)
-        root.attributes("-topmost", True)
+        root.attributes("-topmost", self.topmost)
         root.configure(bg=KEY_LIGHT)
         try:
             root.attributes("-transparentcolor", KEY_LIGHT)
@@ -238,6 +242,7 @@ class UI:
 
         self.follow = tk.StringVar(value=cfg.get("follow", "br"))
         self.theme_var = tk.StringVar(value=self.mode)
+        self.topmost_var = tk.BooleanVar(value=self.topmost)
         m = tk.Menu(root, tearoff=0)
         m.add_radiobutton(label=tr("menu.follow_br"), variable=self.follow, value="br",
                           command=self.on_follow_change)
@@ -253,7 +258,8 @@ class UI:
         m.add_radiobutton(label=tr("menu.theme_dark"), variable=self.theme_var, value="dark",
                           command=self.on_theme_change)
         m.add_separator()
-        m.add_command(label=tr("menu.topmost"), command=self.toggle_top)
+        m.add_checkbutton(label=tr("menu.topmost"), variable=self.topmost_var,
+                          command=self.on_topmost_change)
         m.add_command(label=tr("menu.alpha"), command=self.toggle_alpha)
         m.add_separator()
         m.add_command(label=tr("menu.quit"), command=root.destroy)
@@ -378,8 +384,30 @@ class UI:
             self.apply_palette()
 
     def toggle_top(self):
-        self.topmost = not self.topmost
+        self.topmost_var.set(not self.topmost)
+        self.on_topmost_change()
+
+    def on_topmost_change(self):
+        self.topmost = bool(self.topmost_var.get())
         self.root.attributes("-topmost", self.topmost)
+        self._persist("topmost", self.topmost)
+        if not self.topmost:
+            self._owner = None
+            self.attach_owner()
+
+    def attach_owner(self):
+        """把浮层登记为客户端窗口的附属窗口：压在客户端之上，但不盖住别的程序。"""
+        try:
+            h = self.u.FindWindowW(None, "oc-tps-hud")
+            owner = self.client.find()
+            if not h or not owner or self._owner == owner:
+                return
+            self.u.SetWindowLongPtrW.argtypes = [wintypes.HWND, ctypes.c_int, ctypes.c_longlong]
+            self.u.SetWindowLongPtrW.restype = ctypes.c_longlong
+            self.u.SetWindowLongPtrW(h, GWL_HWNDPARENT, owner)
+            self._owner = owner
+        except Exception as e:
+            logs.write("error.log", "attach_owner failed: %r" % (e,))
 
     def toggle_alpha(self):
         cur = self.root.attributes("-alpha")
@@ -409,6 +437,9 @@ class UI:
         if self.root.state() == "withdrawn":
             self.root.deiconify()
             self.root.attributes("-topmost", self.topmost)
+            self._owner = None
+        if not self.topmost:
+            self.attach_owner()
 
         if self.follow.get() == "free":
             return

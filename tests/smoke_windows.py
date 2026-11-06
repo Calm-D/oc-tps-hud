@@ -44,6 +44,9 @@ class FakeClient:
         self.rect = rect
         self.mode = state
 
+    def find(self):
+        return None
+
     def state(self):
         return (self.mode, self.rect if self.mode == "ok" else None)
 

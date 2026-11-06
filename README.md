@@ -70,6 +70,22 @@ oc-tps-hud
 5. Windows 额外尝试 `%LOCALAPPDATA%\opencode\opencode.db`
 6. macOS 额外尝试 `~/Library/Application Support/opencode/opencode.db`
 
+## 窗口层级
+
+默认把浮层登记为 OpenCode 窗口的**附属窗口**（owned window），行为是：
+
+- 永远压在 OpenCode 之上（客户端在动，它就跟着浮在上面）；
+- 你切到浏览器、游戏、别的程序时，它**跟着 OpenCode 一起退到后面**，不会盖住别人；
+- OpenCode 最小化时它一起隐藏，还原时再出现。
+
+如果确实希望它在任何程序之上，右键勾选「始终置顶（会盖住其他程序）」，等价于配置 `topmost: true`。
+
+## 退出与重启
+
+- **退出**：右键点在文字上 → 退出。进程结束，OpenCode 不受任何影响。
+- **重启**：退出后再双击入口（桌面图标或 `oc-tps-hud.pyw`）。
+- **取消开机自启**：删掉启动文件夹里的 `OpenCode-TPS.pyw`；不影响程序本体。
+
 ## 配置
 
 首次运行会在下列位置创建配置目录，可手改 `config.json`（改完重启生效）：
@@ -82,6 +98,7 @@ oc-tps-hud
 | `follow` | `"br"` | `br` 右下 / `bl` 左下 / `free` 不跟随 |
 | `theme` | `"auto"` | `auto` 按窗口底下亮度切换 / `light` / `dark` |
 | `alpha` | `0.95` | 0.5 ~ 1.0 |
+| `topmost` | `false` | `true` = 盖住所有程序；`false` = 只压在客户端之上 |
 | `language` | `"auto"` | `auto` / `zh` / `en` |
 | `db_path` | `""` | 空 = 自动探测 |
 | `poll_ms` | `400` | 刷新间隔 |
@@ -108,6 +125,7 @@ python -m oc_tps --version
 - 数据库结构由上游决定，大版本升级后可能失效——失效时会明确报错，不会假装有数据。
 - 同时开多个会话时，只跟踪最近有活动的那个。
 - 背景透明意味着**空白处点击穿透**：右键菜单和拖动需要点在文字或左侧圆点上。
+- 拖动浮层会把停靠方式切成「自由摆放」并记住，想恢复跟随要在右键菜单里重选。
 - 未提供官方打包产物；需要单文件 exe 可自行用 PyInstaller 打包。
 
 ## 开发

@@ -11,6 +11,7 @@ DEFAULTS = {
     "follow": "br",              # br | bl | free
     "theme": "auto",             # auto | light | dark
     "alpha": 0.95,               # 0.5 ~ 1.0
+    "topmost": False,            # True = 盖住所有程序；False = 只压在客户端之上
     "language": "auto",          # auto | zh | en
     "db_path": "",               # 空 = 自动探测
     "poll_ms": 400,              # 数据刷新间隔
