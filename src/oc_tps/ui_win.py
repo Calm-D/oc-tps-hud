@@ -175,6 +175,7 @@ class UI:
         self.tr = tr
         self.topmost = bool(cfg.get("topmost", False))
         self._owner = None
+        self.custom = None
         self.settings = cfg
         self.client = ClientWindow(tuple(cfg.get("client_min_size", (480, 360))))
         self.u = self.client.u
@@ -249,6 +250,7 @@ class UI:
             self.line2 = Halo(c, 14, 110, (ui_font, 9))
 
         for w in (root, c):
+            w.bind("<ButtonRelease-1>", self.on_release)
             w.bind("<Button-1>", self.on_press)
             w.bind("<B1-Motion>", self.on_drag)
             w.bind("<Button-3>", self.on_menu)
@@ -262,6 +264,8 @@ class UI:
         m.add_radiobutton(label=tr("menu.follow_br"), variable=self.follow, value="br",
                           command=self.on_follow_change)
         m.add_radiobutton(label=tr("menu.follow_bl"), variable=self.follow, value="bl",
+                          command=self.on_follow_change)
+        m.add_radiobutton(label=tr("menu.follow_custom"), variable=self.follow, value="custom",
                           command=self.on_follow_change)
         m.add_radiobutton(label=tr("menu.follow_free"), variable=self.follow, value="free",
                           command=self.on_follow_change)
@@ -388,11 +392,27 @@ class UI:
             if abs(e.x_root - self._press[0]) < 4 and abs(e.y_root - self._press[1]) < 4:
                 return
             self._moved = True
-            if self.follow.get() != "free":
-                self.follow.set("free")
-                self.on_follow_change()
+            if self.follow.get() not in ("free", "custom"):
+                self.follow.set("custom")
         self.root.geometry("+%d+%d" % (e.x_root - self._drag[0], e.y_root - self._drag[1]))
         self._pos = (self.root.winfo_x(), self.root.winfo_y())
+        self._store_custom()
+
+    def on_release(self, e):
+        if self._moved and self.follow.get() == "custom":
+            self.on_follow_change()
+
+    def _store_custom(self):
+        """记住窗口相对客户端左上角的偏移，跟随移动时按这个偏移走。"""
+        st, rect = self.client.state()
+        if st != "ok":
+            return
+        s = self.scale or 1.0
+        dx = self.root.winfo_x() - int(rect[0] * s)
+        dy = self.root.winfo_y() - int(rect[1] * s)
+        self.custom = (dx, dy)
+        self.cfg.setdefault("window", {})["custom_dx"] = dx
+        self.cfg.setdefault("window", {})["custom_dy"] = dy
 
     def on_menu(self, e):
         self.menu.tk_popup(e.x_root, e.y_root)
@@ -404,7 +424,14 @@ class UI:
         config.save(user)
 
     def on_follow_change(self):
+        if self.follow.get() == "custom":
+            self._store_custom()
+            win = self.cfg.setdefault("window", {})
+            if self.custom:
+                win["custom_dx"], win["custom_dy"] = self.custom
         self._persist("follow", self.follow.get())
+        if self.follow.get() == "custom":
+            self._persist("window", self.cfg.get("window", {}))
         self._pos = None
         if self.follow.get() != "free":
             if self.root.state() == "withdrawn":
@@ -494,6 +521,18 @@ class UI:
         left, top, right, bottom = [int(v * s) for v in rect]
         m = int(self.margin * s)
         dy = int((self.margin + self.bottom_offset) * s)
+
+        win_cfg = self.cfg.get("window") or {}
+        if self.follow.get() == "custom" and win_cfg.get("custom_dx") is not None:
+            cx = left + int(win_cfg["custom_dx"])
+            cy = top + int(win_cfg["custom_dy"])
+            if self._pos != (cx, cy):
+                self._pos = (cx, cy)
+                self.root.geometry("+%d+%d" % (cx, cy))
+                self.root.update_idletasks()
+                self.measure_scale()
+            return
+
         if self.layout == "bar":
             self.set_width((right - left) - 2 * m)
             x = left + ((right - left) - self.W) // 2

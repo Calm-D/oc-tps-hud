@@ -103,7 +103,7 @@ oc-tps-hud
 | 键 | 默认 | 说明 |
 |---|---|---|
 | `layout` | `"bar"` | `bar` 一行细长条（居中）/ `block` 四行方块 |
-| `follow` | `"br"` | `br` 右下 / `bl` 左下 / `free` 不跟随（`bar` 模式恒居中） |
+| `follow` | `"br"` | `br` 右下 / `bl` 左下 / `custom` 自定义位置（仍跟随）/ `free` 不跟随 |
 | `theme` | `"auto"` | `auto` 按窗口底下亮度切换 / `light` / `dark` |
 | `alpha` | `0.95` | 0.5 ~ 1.0 |
 | `topmost` | `false` | `true` = 盖住所有程序；`false` = 只压在客户端之上 |
