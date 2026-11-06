@@ -14,6 +14,8 @@ from . import config, logs
 GWL_HWNDPARENT = -8
 WS_EX_TOPMOST = 0x00000008
 
+CHIP = {"light": "#FFFFFF", "dark": "#15181D"}
+
 KEY_LIGHT = "#FDFDFD"
 KEY_DARK = "#0D0F12"
 
@@ -235,6 +237,7 @@ class UI:
 
         if self.layout == "bar":
             self.f_bar = tkfont.Font(family=ui_font, size=10)
+            self.bar_bg = c.create_rectangle(-30, -30, -20, -20, fill="", outline="")
             self.dot = c.create_oval(-20, -20, -14, -14, fill="", outline="")
             self.bar = Halo(c, W // 2, H // 2, (ui_font, 10), anchor="center")
         else:
@@ -300,7 +303,7 @@ class UI:
 
     def sample_luma(self):
         if not self._pos:
-            return None
+            return None, None
         x, y = self._pos
         pts = [(x + 6, y + 6), (x + self.W - 6, y + 6),
                (x + 6, y + self.H - 6), (x + self.W - 6, y + self.H - 6)]
@@ -308,27 +311,39 @@ class UI:
         gdi.GetPixel.argtypes = [wintypes.HDC, ctypes.c_int, ctypes.c_int]
         gdi.GetPixel.restype = wintypes.DWORD
         hdc = self.u.GetDC(0)
-        vals = []
+        lums, rgbs = [], []
         try:
             for px, py in pts:
                 v = gdi.GetPixel(hdc, px, py)
                 if v == 0xFFFFFFFF:
                     continue
                 r, g, b = v & 0xFF, (v >> 8) & 0xFF, (v >> 16) & 0xFF
-                vals.append(0.299 * r + 0.587 * g + 0.114 * b)
+                lums.append(0.299 * r + 0.587 * g + 0.114 * b)
+                rgbs.append((r, g, b))
         except Exception:
-            return None
+            return None, None
         finally:
             self.u.ReleaseDC(0, hdc)
-        return (sum(vals) / len(vals)) if vals else None
+        if not lums:
+            return None, None
+        n = len(rgbs)
+        avg = tuple(sum(c[i] for c in rgbs) // n for i in range(3))
+        return sum(lums) / n, avg
 
     def refresh_theme(self):
         if self.mode != "auto":
             want = self.mode
         else:
-            luma = self.sample_luma()
+            luma, rgb = self.sample_luma()
             if luma is None:
                 return
+            if rgb:
+                old = getattr(self, "chip_rgb", None)
+                if old is None or max(abs(a - b) for a, b in zip(rgb, old)) > 10:
+                    self.chip_rgb = rgb
+                    self.chip_hex = "#%02X%02X%02X" % rgb
+                    if self.layout == "bar":
+                        self.c.itemconfigure(self.bar_bg, fill=self.chip_hex)
             if luma > 150:
                 want = "light"
             elif luma < 105:
@@ -352,6 +367,8 @@ class UI:
         self.c.itemconfigure(self.dot, fill=p["mute"])
         if self.layout == "bar":
             self.bar.recolor(p["text"], p["halo"])
+            self.c.itemconfigure(self.bar_bg,
+                                 fill=getattr(self, "chip_hex", None) or CHIP[self.theme])
         else:
             for h, k in ((self.status, "dim"), (self.num, "text"),
                          (self.unit, "dim2"), (self.line1, "dim"), (self.line2, "dim2")):
@@ -559,6 +576,13 @@ class UI:
         w = self.f_bar.measure(text)
         cx = self.W // 2
         dx = cx - w / 2.0 - 10
+
+        # 底板：把背后的正文挡住，避免两层文字糊在一起
+        left = max(2, dx - 14)
+        right = min(self.W - 2, cx + w / 2.0 + 12)
+        self.c.coords(self.bar_bg, left, 3, right, self.H - 3)
+        self.c.itemconfigure(self.bar_bg, state="normal",
+                             fill=getattr(self, "chip_hex", None) or CHIP[self.theme])
         if dx > 6:
             r = 3
             cy = self.H // 2
