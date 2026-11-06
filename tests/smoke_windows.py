@@ -135,7 +135,11 @@ def main():
             assert h, "窗口不存在"
             r = wintypes.RECT()
             ctypes.windll.user32.GetWindowRect(h, ctypes.byref(r))
-            assert ctypes.windll.user32.IsWindowVisible(h), "窗口不可见"
+            visible = bool(ctypes.windll.user32.IsWindowVisible(h))
+            if app.client.state()[0] == "ok":
+                assert visible, "客户端可见，但浮层没有显示"
+            else:
+                assert not visible, "客户端不可见，浮层却还显示着（应自动隐藏）"
             assert (r.right - r.left, r.bottom - r.top) == (cfg["window"]["width"], cfg["window"]["height"]), \
                 (r.right - r.left, r.bottom - r.top)
             return "%dx%d 可见" % (r.right - r.left, r.bottom - r.top)
@@ -150,7 +154,7 @@ def main():
             app.root.update()
             x, y = app._pos
             assert x == 1100 - app.W - app.margin, (x, app.W, app.margin)
-            assert y == 800 - app.H - app.margin, y
+            assert y == 800 - app.H - (app.margin + app.bottom_offset), y
             return "落点 (%d,%d)" % (x, y)
 
         check("右下角停靠", dock_br)

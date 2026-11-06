@@ -78,6 +78,9 @@ oc-tps-hud
 - 你切到浏览器、游戏、别的程序时，它**跟着 OpenCode 一起退到后面**，不会盖住别人；
 - OpenCode 最小化时它一起隐藏，还原时再出现。
 
+位置默认贴在**输入框上方**（距窗口底边 12 + `bottom_offset` 像素），不会压住发送按钮等控件。
+觉得高了或低了：右键菜单「整体上移 / 下移 20px」，调完自动记住。
+
 如果确实希望它在任何程序之上，右键勾选「始终置顶（会盖住其他程序）」，等价于配置 `topmost: true`。
 
 ## 退出与重启
@@ -102,7 +105,7 @@ oc-tps-hud
 | `language` | `"auto"` | `auto` / `zh` / `en` |
 | `db_path` | `""` | 空 = 自动探测 |
 | `poll_ms` | `400` | 刷新间隔 |
-| `window` | `{width:268,height:128,margin:12}` | 浮层尺寸与距离客户端边缘的像素 |
+| `window` | `{width:268,height:128,margin:12,bottom_offset:104}` | 尺寸、右/左间距，以及距底边的抬升量（避开输入框） |
 | `fonts` | `{ui:"",number:""}` | 空 = 按平台选择（Win 雅黑 / mac PingFang / Linux Noto） |
 | `client_min_size` | `[480,360]` | 小于此尺寸的窗口不认作客户端主窗口 |
 | `debug` | `false` | 预留 |

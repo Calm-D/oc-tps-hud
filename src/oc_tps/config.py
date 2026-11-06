@@ -19,6 +19,7 @@ DEFAULTS = {
         "width": 268,
         "height": 128,
         "margin": 12,            # 距客户端窗口边缘的像素
+        "bottom_offset": 104,    # 再往上抬多少像素：用来避开输入框/按钮区
     },
     "fonts": {
         "ui": "",                # 空 = 按平台选择

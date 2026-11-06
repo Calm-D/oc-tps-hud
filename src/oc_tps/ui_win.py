@@ -212,6 +212,7 @@ class UI:
         H = int(win.get("height", 128))
         self.W, self.H = W, H
         self.margin = int(win.get("margin", 12))
+        self.bottom_offset = int(win.get("bottom_offset", 104))
         sw, sh = root.winfo_screenwidth(), root.winfo_screenheight()
         root.geometry("%dx%d+%d+%d" % (W, H, sw - W - 28, sh - H - 96))
 
@@ -260,6 +261,8 @@ class UI:
         m.add_separator()
         m.add_checkbutton(label=tr("menu.topmost"), variable=self.topmost_var,
                           command=self.on_topmost_change)
+        m.add_command(label=tr("menu.up"), command=lambda: self.nudge_bottom(-20))
+        m.add_command(label=tr("menu.down"), command=lambda: self.nudge_bottom(20))
         m.add_command(label=tr("menu.alpha"), command=self.toggle_alpha)
         m.add_separator()
         m.add_command(label=tr("menu.quit"), command=root.destroy)
@@ -387,6 +390,14 @@ class UI:
         self.topmost_var.set(not self.topmost)
         self.on_topmost_change()
 
+    def nudge_bottom(self, delta):
+        """微调「距底边的抬升量」，避开输入框和按钮。"""
+        self.bottom_offset = max(0, min(800, self.bottom_offset + delta))
+        self.cfg.setdefault("window", {})["bottom_offset"] = self.bottom_offset
+        config.save(self.cfg)
+        self._pos = None
+        self.dock()
+
     def on_topmost_change(self):
         self.topmost = bool(self.topmost_var.get())
         self.root.attributes("-topmost", self.topmost)
@@ -447,11 +458,12 @@ class UI:
         s = self.scale or 1.0
         left, top, right, bottom = [int(v * s) for v in rect]
         m = int(self.margin * s)
+        dy = int((self.margin + self.bottom_offset) * s)
         if self.follow.get() == "bl":
             x = left + m
         else:
             x = right - self.W - m
-        y = bottom - self.H - m
+        y = bottom - self.H - dy
         vx, vy, vw, vh = self.client.virtual_screen()
         x = max(int(vx * s), min(x, int((vx + vw) * s) - self.W))
         y = max(int(vy * s), min(y, int((vy + vh) * s) - self.H))
